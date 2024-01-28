@@ -33,7 +33,7 @@ void led_off(void)
     GPIOB_ResetBits( GPIO_Pin_0 );
 }
 
-static err_t tcp_data_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
     printf("\033[32m Data received.\n\r\033[0m");
 
@@ -55,66 +55,33 @@ static err_t tcp_data_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     for (int i = 0; i < p->tot_len; i++)
     {
         uint8_t byte = *(uint8_t*)(p->payload+i);
-        printf("%02x ", byte);
+        printf("%c ", byte);
     }
     printf("\n\r");
-    if (p->len == 1)
-    {
-        uint8_t *data = (uint8_t*)p->payload;
-        char c = data[0];
-        if(c == '1')
-        {
-            led_on();
-            printf("Led enabled.\n\r");
-        }
-        else if(c == '0')
-        {
-            led_off();
-            printf("Led disabled.\n\r");
-        }
-        else
-        {
-            printf("Incorrect state: %c\n\r", c);
-        }
-    }
-    else
-    {
-        printf("Incorrect data. Send character '0' or '1'\n\r");
-    }
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
     return ERR_OK;
 }
 
-static void tcp_connection_error(void *arg, err_t err)
+static void tcp_influx_error(void *arg, err_t err)
 {
   printf("\033[91mtcp connection fatal Error. Maybe memory shortage.\033[0m\n\r");
-}
-
-static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
-{
-    printf("\033[33mTCP poll. Too long connection. Closing\n\r\033[0m]");
-    tcp_close(tpcb);
-    return ERR_OK;
-}
-
-static err_t tcp_connection_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
-{
-    printf("\033[32m Connection accepted.\n\r\033[0m");
-    tcp_arg(newpcb, &arg);
-    tcp_recv(newpcb, tcp_data_received);
-    tcp_err(newpcb, tcp_connection_error);
-    tcp_poll(newpcb, tcp_connection_poll, 10);
-    return ERR_OK;
 }
 
 void influxdb_connect(void)
 {
     static struct tcp_pcb *tcp_pcb_handle;
     err_t result;
+
     tcp_pcb_handle = tcp_new();
     if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return;}
+
+    tcp_arg(tcp_pcb_handle, &arg);
+
+    tcp_recv(tcp_pcb_handle, tcp_influx_received);
+    tcp_err(tcp_pcb_handle, tcp_influx_error);
+    tcp_sent(tcp_pcb_handle, tcp_influx_sent);
 }
 
 // Very helpful link https://lwip.fandom.com/wiki/Raw/TCP
@@ -132,6 +99,7 @@ int main()
     printf("\n\rAirsensor.\n\r");
     lwip_comm_init(); 
 
+    influxdb_connect();
 
     while(1)
     {
