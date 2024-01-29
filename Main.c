@@ -66,7 +66,25 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
 static void tcp_influx_error(void *arg, err_t err)
 {
-  printf("\033[91mtcp connection fatal Error. Maybe memory shortage.\033[0m\n\r");
+    printf("\033[91mtcp connection fatal Error. Maybe memory shortage.\033[0m\n\r");
+}
+
+static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
+    printf("Frame sent.\n\r");
+    return ERR_OK;
+}
+
+void influx_tcp_send_packet(void)
+{
+
+}
+
+err_t tcp_influx_connect(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
+    printf("Connected.\n\r");
+    influx_tcp_send_packet();
+    return 0;
 }
 
 void influxdb_connect(void)
@@ -82,6 +100,10 @@ void influxdb_connect(void)
     tcp_recv(tcp_pcb_handle, tcp_influx_received);
     tcp_err(tcp_pcb_handle, tcp_influx_error);
     tcp_sent(tcp_pcb_handle, tcp_influx_sent);
+
+    ip_addr_t influx_server_ip;
+    IP4_ADDR(&influx_server_ip, 192,168,2,101);   
+    tcp_connect(tcp_pcb_handle, &influx_server_ip, 80, tcp_influx_connect);
 }
 
 // Very helpful link https://lwip.fandom.com/wiki/Raw/TCP
