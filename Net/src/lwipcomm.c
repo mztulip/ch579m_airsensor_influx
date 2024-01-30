@@ -64,7 +64,7 @@ void eth_status_led_init(void)
 
 void netif_status_callback(struct netif *netif)
 {
-  printf("\n\rnetif status changed %s", ip4addr_ntoa(netif_ip4_addr(netif)));
+  printf("netif status changed %s\n\r", ip4addr_ntoa(netif_ip4_addr(netif)));
 }
 
 uint8_t lwip_comm_init(void)
@@ -87,7 +87,7 @@ uint8_t lwip_comm_init(void)
 
 	if(Netif_Init_Flag==NULL)
 	{
-		printf("\n\rnetif_add fail");
+		printf("netif_add fail\n\r");
 		return 4;
 	}
 	else
@@ -98,7 +98,7 @@ uint8_t lwip_comm_init(void)
 		netif_set_link_up(&lwip_netif); 
 	}
 
-	printf("\n\rlwip initialised sucessfully.");
+	printf("lwip initialised sucessfully.\n\r");
 	return 0;
 	
 }

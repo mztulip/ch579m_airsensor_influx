@@ -54,7 +54,7 @@ void ETHParaInitX(void)
 	ETHTxMagPara.SendEn = 0;
 
 	GetMACAddress(myCh579MAC);
-	printf("\n\rMac: %x:%x:%x:%x:%x:%x",myCh579MAC[5], myCh579MAC[4],myCh579MAC[3],myCh579MAC[2],myCh579MAC[1],myCh579MAC[0]);
+	printf("Mac: %x:%x:%x:%x:%x:%x\n\r",myCh579MAC[5], myCh579MAC[4],myCh579MAC[3],myCh579MAC[2],myCh579MAC[1],myCh579MAC[0]);
 }
 
 void ETHInitX(void)

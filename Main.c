@@ -38,14 +38,16 @@ void led_off(void)
 
 static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
+    err_t result;
     printf("\033[32m Data received.\n\r\033[0m");
-
     // Remote server closes connection
     if (p == NULL)
     {
         printf("Closing connection, request from server\n\r");
         influx_conn_state = Closed;
-        tcp_close(tpcb);
+        result = tcp_close(tpcb);
+        if(result != ERR_OK) {printf("tcp_close error \n\r");}
+        if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
         return ERR_OK;
     }
     else if(err != ERR_OK)
@@ -72,10 +74,16 @@ static void tcp_influx_error(void *arg, err_t err)
     if(influx_conn_state == Connecting)
     {
         influx_conn_state = Closed;
-        printf("\033[91mtcp connection fail.\033[0m\n\r");
+        printf("\033[91mtcp connection fail\033[0m\n\r");
         return;
     }
-    printf("\033[91mtcp connection fatal Error. Maybe memory shortage.\033[0m\n\r");
+    influx_conn_state = Closed;
+    if( err == ERR_RST)
+    {
+        printf("\033[91mconnection was reset by remote server\033\n\r");
+        return;
+    }
+    printf("\033[91mtcp connection fatal. %d\033[0m\n\r", err);
 }
 
 static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
