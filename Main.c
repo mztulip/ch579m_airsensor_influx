@@ -43,9 +43,8 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
     // Remote server closes connection
     if (p == NULL)
     {
-        printf("Closing connection, request from server\n\r");
+        printf("Connection closed\n\r");
         influx_conn_state = Closed;
-        result = tcp_close(tpcb);
         if(result != ERR_OK) {printf("tcp_close error \n\r");}
         if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
         return ERR_OK;
@@ -97,13 +96,11 @@ static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
 
 char *http_post = "POST /write?db=woda_db HTTP/1.1\x0d\x0a"
 "Host: 192.168.2.101:8086\x0d\x0a"
-"User-Agent: curl/8.4.0\x0d\x0a"
+"User-Agent: ch579_airsensor/1.0\x0d\x0a"
 "Accept: */*\x0d\x0a"
 "Content-Length: 29\x0d\x0a"
 "Content-Type: application/x-www-form-urlencoded\x0d\x0a\x0d\x0a"
 "licznik,kto=woda1 value=45301";
-
-// char *http_post = "hehe";
 
 void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 {
@@ -118,7 +115,7 @@ void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
 {
     printf("\033[33mTCP poll. Too long connection. Closing\n\r\033[0m");
-    // tcp_close(tpcb);
+    tcp_close(tpcb);
     return ERR_OK;
 }
 
@@ -126,6 +123,7 @@ static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
 err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
     influx_conn_state = Connected;
+    tcp_poll(tpcb, tcp_connection_poll, 10);
     printf("Connected.\n\r");
     influx_tcp_send_packet(tpcb);
     return ERR_OK;
@@ -143,7 +141,6 @@ void influxdb_connect(void)
     tcp_recv(tcp_pcb_handle, tcp_influx_received);
     tcp_err(tcp_pcb_handle, tcp_influx_error);
     tcp_sent(tcp_pcb_handle, tcp_influx_sent);
-    tcp_poll(tcp_pcb_handle, tcp_connection_poll, 1);
 
     ip_addr_t influx_server_ip;
     IP4_ADDR(&influx_server_ip, 192,168,2,101);   
