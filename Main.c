@@ -10,6 +10,9 @@
 
 uint32_t arg = 0;
 
+enum connection_state {Closed = 0, Connected = 1, Connecting =2}; 
+enum connection_state influx_conn_state = Closed;
+
 void uart_init(void)		
 {
     GPIOA_SetBits(GPIO_Pin_9);
@@ -41,6 +44,7 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
     if (p == NULL)
     {
         printf("Closing connection, request from server\n\r");
+        influx_conn_state = Closed;
         tcp_close(tpcb);
         return ERR_OK;
     }
@@ -65,6 +69,12 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
 static void tcp_influx_error(void *arg, err_t err)
 {
+    if(influx_conn_state == Connecting)
+    {
+        influx_conn_state = Closed;
+        printf("\033[91mtcp connection fail.\033[0m\n\r");
+        return;
+    }
     printf("\033[91mtcp connection fatal Error. Maybe memory shortage.\033[0m\n\r");
 }
 
@@ -104,12 +114,8 @@ static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
 
 err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
+    influx_conn_state = Connected;
     printf("Connected.\n\r");
-    tcp_arg(tpcb, &arg);
-    tcp_recv(tpcb, tcp_influx_received);
-    tcp_err(tpcb, tcp_influx_error);
-    tcp_sent(tpcb, tcp_influx_sent);
-    tcp_poll(tpcb, tcp_connection_poll, 1);
     influx_tcp_send_packet(tpcb);
     return ERR_OK;
 }
@@ -122,10 +128,18 @@ void influxdb_connect(void)
     tcp_pcb_handle = tcp_new();
     if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return;}
 
+    tcp_arg(tcp_pcb_handle, &arg);
+    tcp_recv(tcp_pcb_handle, tcp_influx_received);
+    tcp_err(tcp_pcb_handle, tcp_influx_error);
+    tcp_sent(tcp_pcb_handle, tcp_influx_sent);
+    tcp_poll(tcp_pcb_handle, tcp_connection_poll, 1);
 
     ip_addr_t influx_server_ip;
     IP4_ADDR(&influx_server_ip, 192,168,2,103);   
-    tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
+    influx_conn_state = Connecting;
+    result = tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
+    if(result != ERR_OK) {printf("tcp_connect error \n\r");}
+    if(result == ERR_MEM) {printf("tcp_connect can not allocate memory \n\r");}
 }
 
 // Very helpful link https://lwip.fandom.com/wiki/Raw/TCP
