@@ -37,12 +37,11 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 {
     printf("\033[32m Data received.\n\r\033[0m");
 
-    // Remote client closes connection
+    // Remote server closes connection
     if (p == NULL)
     {
-        printf("Closing connection, request client\n\r");
+        printf("Closing connection, request from server\n\r");
         tcp_close(tpcb);
-
         return ERR_OK;
     }
     else if(err != ERR_OK)
@@ -55,7 +54,7 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
     for (int i = 0; i < p->tot_len; i++)
     {
         uint8_t byte = *(uint8_t*)(p->payload+i);
-        printf("%c ", byte);
+        printf("%c", byte);
     }
     printf("\n\r");
 
@@ -71,20 +70,48 @@ static void tcp_influx_error(void *arg, err_t err)
 
 static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
 {
-    printf("Frame sent.\n\r");
+    printf("Packet sent.\n\r");
     return ERR_OK;
 }
 
-void influx_tcp_send_packet(void)
-{
+char *http_post = "POST /write?db=woda_db HTTP/1.1\x0d\x0a"
+"Host: 192.168.2.101:8086\x0d\x0a"
+"User-Agent: curl/8.4.0\x0d\x0a"
+"Accept: */*\x0d\x0a"
+"Content-Length: 29\x0d\x0a"
+"Content-Type: application/x-www-form-urlencoded\x0d\x0a\x0d\x0a"
+"licznik,kto=woda1 value=45301";
 
+// char *http_post = "hehe";
+
+void influx_tcp_send_packet(struct tcp_pcb *tpcb)
+{
+    err_t result;
+ 
+    result = tcp_write(tpcb, http_post, strlen(http_post)-1, TCP_WRITE_FLAG_COPY);
+    if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
+    result = tcp_output(tpcb);
+    if(result != ERR_OK) {printf("tcp_output error \n\r");return;}
 }
 
-err_t tcp_influx_connect(void *arg, struct tcp_pcb *tpcb, err_t err)
+static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
+{
+    printf("\033[33mTCP poll. Too long connection. Closing\n\r\033[0m");
+    // tcp_close(tpcb);
+    return ERR_OK;
+}
+
+
+err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
     printf("Connected.\n\r");
-    influx_tcp_send_packet();
-    return 0;
+    tcp_arg(tpcb, &arg);
+    tcp_recv(tpcb, tcp_influx_received);
+    tcp_err(tpcb, tcp_influx_error);
+    tcp_sent(tpcb, tcp_influx_sent);
+    tcp_poll(tpcb, tcp_connection_poll, 1);
+    influx_tcp_send_packet(tpcb);
+    return ERR_OK;
 }
 
 void influxdb_connect(void)
@@ -95,15 +122,10 @@ void influxdb_connect(void)
     tcp_pcb_handle = tcp_new();
     if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return;}
 
-    tcp_arg(tcp_pcb_handle, &arg);
-
-    tcp_recv(tcp_pcb_handle, tcp_influx_received);
-    tcp_err(tcp_pcb_handle, tcp_influx_error);
-    tcp_sent(tcp_pcb_handle, tcp_influx_sent);
 
     ip_addr_t influx_server_ip;
-    IP4_ADDR(&influx_server_ip, 192,168,2,101);   
-    tcp_connect(tcp_pcb_handle, &influx_server_ip, 80, tcp_influx_connect);
+    IP4_ADDR(&influx_server_ip, 192,168,2,103);   
+    tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
 }
 
 // Very helpful link https://lwip.fandom.com/wiki/Raw/TCP
