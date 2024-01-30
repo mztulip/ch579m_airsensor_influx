@@ -66,6 +66,9 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
+    result = tcp_close(tpcb);
+    if(result != ERR_OK) {printf("tcp_close error \n\r");}
+    if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
     return ERR_OK;
 }
 
@@ -106,7 +109,7 @@ void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 {
     err_t result;
  
-    result = tcp_write(tpcb, http_post, strlen(http_post)-1, TCP_WRITE_FLAG_COPY);
+    result = tcp_write(tpcb, http_post, strlen(http_post), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
     result = tcp_output(tpcb);
     if(result != ERR_OK) {printf("tcp_output error \n\r");return;}
@@ -143,7 +146,7 @@ void influxdb_connect(void)
     tcp_poll(tcp_pcb_handle, tcp_connection_poll, 1);
 
     ip_addr_t influx_server_ip;
-    IP4_ADDR(&influx_server_ip, 192,168,2,103);   
+    IP4_ADDR(&influx_server_ip, 192,168,2,101);   
     influx_conn_state = Connecting;
     result = tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
     if(result != ERR_OK) {printf("tcp_connect error \n\r");}
