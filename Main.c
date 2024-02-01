@@ -165,10 +165,18 @@ int main()
     printf("\n\rAirsensor.\n\r");
     lwip_comm_init(); 
 
-    influxdb_connect();
+    struct Timer0Delay sendTimer;
+    timer0_init_delay(&sendTimer, 500); //every 5s
 
     while(1)
     {
+        if(timer0_check_delay(&sendTimer))
+        {
+            if(influx_conn_state == Closed)
+            {
+                influxdb_connect();
+            }
+        }
         lwip_pkt_handle();
         lwip_periodic_handle();
         sys_check_timeouts();	

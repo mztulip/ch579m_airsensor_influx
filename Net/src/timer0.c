@@ -26,6 +26,23 @@ void TMR0_IRQHandler( void )        // TMR0
     time_10ms++;
 }
 
+bool timer0_init_delay(struct Timer0Delay *delay, uint32_t delay10ms)
+{
+  delay->delay_10ms = delay10ms;
+  delay->started = time_10ms;
+}
+
+bool timer0_check_delay(struct Timer0Delay *delay)
+{
+  uint32_t finish_time = delay->started + delay->delay_10ms;
+  if(time_10ms >= finish_time)
+  {
+    delay->started = time_10ms;
+    return true;
+  }
+  return false;
+}
+
 //Should return time in miliseconds
 u32_t sys_now()
 {
