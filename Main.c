@@ -166,11 +166,11 @@ int main()
     lwip_comm_init(); 
 
     struct Timer0Delay sendTimer;
-    timer0_init_delay(&sendTimer, 500); //every 5s
+    timer0_init_wait_10ms(&sendTimer, 500); //every 5s
 
     while(1)
     {
-        if(timer0_check_delay(&sendTimer))
+        if(timer0_check_wait(&sendTimer))
         {
             if(influx_conn_state == Closed)
             {

@@ -11,8 +11,8 @@ struct Timer0Delay {
 
 void InitTimer0(void);
 uint32_t get_time_10ms(void);
-bool timer0_init_delay(struct Timer0Delay *delay, uint32_t delay10ms);
-bool timer0_check_delay(struct Timer0Delay *delay);
+bool timer0_init_wait_10ms(struct Timer0Delay *delay, uint32_t delay10ms);
+bool timer0_check_wait(struct Timer0Delay *delay);
 
 
 #endif 
