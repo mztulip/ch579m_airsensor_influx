@@ -9,9 +9,7 @@
 #include "tcp.h"
 
 uint32_t arg = 0;
-
-enum connection_state {Closed = 0, Connected = 1, Connecting =2}; 
-enum connection_state influx_conn_state = Closed;
+static struct tcp_pcb *tcp_pcb_handle;
 
 void uart_init(void)		
 {
@@ -44,7 +42,6 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
     if (p == NULL)
     {
         printf("Connection closed\n\r");
-        influx_conn_state = Closed;
         if(result != ERR_OK) {printf("tcp_close error \n\r");}
         if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
         return ERR_OK;
@@ -65,21 +62,17 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
-    result = tcp_close(tpcb);
-    if(result != ERR_OK) {printf("tcp_close error \n\r");}
-    if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
+  
     return ERR_OK;
 }
 
 static void tcp_influx_error(void *arg, err_t err)
 {
-    if(influx_conn_state == Connecting)
+    if(tcp_pcb_handle->state == SYN_SENT)
     {
-        influx_conn_state = Closed;
         printf("\033[91mtcp connection fail\033[0m\n\r");
         return;
     }
-    influx_conn_state = Closed;
     if( err == ERR_RST)
     {
         printf("\033[91mconnection was reset by remote server\033\n\r");
@@ -114,37 +107,37 @@ void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 
 static err_t tcp_connection_poll(void *arg, struct tcp_pcb *tpcb)
 {
-    printf("\033[33mTCP poll. Too long connection. Closing\n\r\033[0m");
-    tcp_close(tpcb);
+    printf("\033[33mTCP poll\n\r\033[0m");
     return ERR_OK;
 }
-
 
 err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
-    influx_conn_state = Connected;
     tcp_poll(tpcb, tcp_connection_poll, 10);
     printf("Connected.\n\r");
-    influx_tcp_send_packet(tpcb);
     return ERR_OK;
 }
 
-void influxdb_connect(void)
+err_t tcp_connection_init(void)
 {
-    static struct tcp_pcb *tcp_pcb_handle;
-    err_t result;
-
     tcp_pcb_handle = tcp_new();
-    if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return;}
+    if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return ERR_MEM;}
 
     tcp_arg(tcp_pcb_handle, &arg);
     tcp_recv(tcp_pcb_handle, tcp_influx_received);
     tcp_err(tcp_pcb_handle, tcp_influx_error);
     tcp_sent(tcp_pcb_handle, tcp_influx_sent);
+    return ERR_OK;
+}
 
+void influxdb_connect(void)
+{
+    err_t result;
+    result = tcp_connection_init();
+    if(result != ERR_OK) {return;}
     ip_addr_t influx_server_ip;
-    IP4_ADDR(&influx_server_ip, 192,168,2,101);   
-    influx_conn_state = Connecting;
+    IP4_ADDR(&influx_server_ip, 192,168,2,101);  
+
     result = tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
     if(result != ERR_OK) {printf("tcp_connect error \n\r");}
     if(result == ERR_MEM) {printf("tcp_connect can not allocate memory \n\r");}
@@ -167,14 +160,14 @@ int main()
 
     struct Timer0Delay sendTimer;
     timer0_init_wait_10ms(&sendTimer, 500); //every 5s
-
+    influxdb_connect();
     while(1)
     {
         if(timer0_check_wait(&sendTimer))
         {
-            if(influx_conn_state == Closed)
+            if(tcp_pcb_handle->state == ESTABLISHED)
             {
-                influxdb_connect();
+                influx_tcp_send_packet(tcp_pcb_handle);
             }
         }
         lwip_pkt_handle();
