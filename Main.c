@@ -68,9 +68,13 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
 static void tcp_influx_error(void *arg, err_t err)
 {
+    err_t result;
     if(tcp_pcb_handle->state == SYN_SENT)
     {
         printf("\033[91mtcp connection fail\033[0m\n\r");
+        result = tcp_close(tcp_pcb_handle);
+        if(result == ERR_MEM) {printf("no memory for tcp close\n\r");}
+        if(result != ERR_OK) {printf("tcp close failed\n\r");}
         return;
     }
     if( err == ERR_RST)
@@ -79,6 +83,9 @@ static void tcp_influx_error(void *arg, err_t err)
         return;
     }
     printf("\033[91mtcp connection fatal. %d\033[0m\n\r", err);
+    result = tcp_close(tcp_pcb_handle);
+    if(result == ERR_MEM) {printf("no memory for tcp close\n\r");}
+    if(result != ERR_OK) {printf("tcp close failed\n\r");}
 }
 
 static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
@@ -160,11 +167,16 @@ int main()
 
     struct Timer0Delay sendTimer;
     timer0_init_wait_10ms(&sendTimer, 500); //every 5s
-    influxdb_connect();
+    
     while(1)
     {
+        if(tcp_pcb_handle->state == CLOSED)
+        {
+            influxdb_connect();
+        }
         if(timer0_check_wait(&sendTimer))
         {
+            printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
             {
                 influx_tcp_send_packet(tcp_pcb_handle);
