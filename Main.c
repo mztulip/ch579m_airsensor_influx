@@ -9,7 +9,7 @@
 #include "tcp.h"
 
 uint32_t arg = 0;
-static struct tcp_pcb *tcp_pcb_handle;
+static struct tcp_pcb *tcp_pcb_handle = NULL;
 
 void uart_init(void)		
 {
@@ -42,8 +42,10 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
     if (p == NULL)
     {
         printf("Connection closed\n\r");
+        result = tcp_close(tpcb);
         if(result != ERR_OK) {printf("tcp_close error \n\r");}
         if(result == ERR_MEM) {printf("tcp_close can not allocate memory\n\r");}
+        tcp_pcb_handle = NULL;
         return ERR_OK;
     }
     else if(err != ERR_OK)
@@ -68,24 +70,19 @@ static err_t tcp_influx_received(void *arg, struct tcp_pcb *tpcb, struct pbuf *p
 
 static void tcp_influx_error(void *arg, err_t err)
 {
-    err_t result;
-    if(tcp_pcb_handle->state == SYN_SENT)
-    {
-        printf("\033[91mtcp connection fail\033[0m\n\r");
-        result = tcp_close(tcp_pcb_handle);
-        if(result == ERR_MEM) {printf("no memory for tcp close\n\r");}
-        if(result != ERR_OK) {printf("tcp close failed\n\r");}
-        return;
-    }
     if( err == ERR_RST)
     {
         printf("\033[91mconnection was reset by remote server\033\n\r");
-        return;
     }
-    printf("\033[91mtcp connection fatal. %d\033[0m\n\r", err);
-    result = tcp_close(tcp_pcb_handle);
-    if(result == ERR_MEM) {printf("no memory for tcp close\n\r");}
-    if(result != ERR_OK) {printf("tcp close failed\n\r");}
+    else if (err == ERR_ABRT )
+    {
+        printf("Connection aborted\n\r");
+    }
+    else 
+    {
+        printf("\033[91mtcp connection fatal: %s\033[0m\n\r", lwip_strerr(err));
+    }
+    tcp_pcb_handle = NULL;
 }
 
 static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
@@ -105,7 +102,7 @@ char *http_post = "POST /write?db=woda_db HTTP/1.1\x0d\x0a"
 void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 {
     err_t result;
- 
+    printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
     result = tcp_write(tpcb, http_post, strlen(http_post), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
     result = tcp_output(tpcb);
@@ -125,23 +122,18 @@ err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
     return ERR_OK;
 }
 
-err_t tcp_connection_init(void)
+void influxdb_connect(void)
 {
+    err_t result;
+ 
     tcp_pcb_handle = tcp_new();
-    if(tcp_pcb_handle == NULL){printf("tcp_new failed\n\r");return ERR_MEM;}
+    if(tcp_pcb_handle == NULL){printf("tcp_new failed, no memory\n\r");return;}
 
     tcp_arg(tcp_pcb_handle, &arg);
     tcp_recv(tcp_pcb_handle, tcp_influx_received);
     tcp_err(tcp_pcb_handle, tcp_influx_error);
     tcp_sent(tcp_pcb_handle, tcp_influx_sent);
-    return ERR_OK;
-}
-
-void influxdb_connect(void)
-{
-    err_t result;
-    result = tcp_connection_init();
-    if(result != ERR_OK) {return;}
+ 
     ip_addr_t influx_server_ip;
     IP4_ADDR(&influx_server_ip, 192,168,2,101);  
 
@@ -170,11 +162,11 @@ int main()
     
     while(1)
     {
-        if(tcp_pcb_handle->state == CLOSED)
+        if(tcp_pcb_handle == NULL)
         {
             influxdb_connect();
         }
-        if(timer0_check_wait(&sendTimer))
+        if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
         {
             printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
