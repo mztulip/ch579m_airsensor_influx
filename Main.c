@@ -173,6 +173,7 @@ int main()
         }
         if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
         {
+            pms10_print_data();
             printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
             {

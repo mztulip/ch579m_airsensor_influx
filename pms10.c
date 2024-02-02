@@ -73,7 +73,6 @@ void pms10_read(void)
 
         if(current_byte == '\x4d' && previous_byte == '\x42')
         {
-            memset(frame, 0x55, 32);
             frame[0] = '\x42';
             frame[1] = '\x4d';
             byte_index = 2;
@@ -81,11 +80,18 @@ void pms10_read(void)
         
         if(byte_index == 32)
         {   
-            print_frame();
+            // print_frame();
             if(check_checksum() == true)
             {
                 memcpy((uint8_t*)&pms_frame, frame, 32);
             }
         }
     }
+}
+
+void pms10_print_data(void)
+{
+    printf("PM1.0 concentration: %d ug/m3\n\r", pms_frame.pm10_standard);
+    printf("PM2.5 concentration: %d ug/m3\n\r", pms_frame.pm25_standard);
+    printf("PM10 concentration: %d ug/m3\n\r", pms_frame.pm100_standard);
 }
