@@ -163,12 +163,23 @@ int main()
 
     pms10_init();
 
-   
+    struct __attribute__((packed, scalar_storage_order("big-endian"))) pms1003data 
+    {
+        uint16_t start_bytes;
+        uint16_t frame_len;
+        uint16_t pm1_standard, pm25_standard, pm10_standard;
+        uint16_t pm1_env, pm25_env, pm_env;
+        uint16_t particles_03um, particles_05um, particles_10um, particles_25um, particles_50um, particles_100um;
+        uint16_t unused;
+        uint16_t checksum;
+    };
+
     uint8_t frame[32];
-    uint8_t frame_complete[30];
+    struct pms1003data pms_frame;
     uint8_t previous_byte = 0;
     uint8_t current_byte = 0;
     uint8_t byte_index = 0;
+
     
     while(1)
     {
@@ -182,19 +193,26 @@ int main()
 
             if(current_byte == '\x4d' && previous_byte == '\x42')
             {
-                byte_index = 0;
+                frame[0] = '\x42';
+                frame[1] = '\x4d';
+                byte_index = 2;
                 printf("New frame\n\r");
             }
             
             if(byte_index == 31)
             {
-                memcpy(frame_complete, frame, 30);
+                memcpy((uint8_t*)&pms_frame, frame, 32);
                 printf("Frame data: ");
-                for(int i = 0 ; i <30;i++)
+                for(int i = 0 ; i <32;i++)
                 {
-                    printf("%02x ", frame_complete[i]);
+                    printf("%02x ", *((uint8_t*)&pms_frame+i));
                 }
                 printf("\n\r");
+                if(pms_frame.frame_len != 28)
+                {
+                    printf("\033[91mPMS10 incorret frame length\033[0m \n\r");
+                }
+                
             }
         }
      
