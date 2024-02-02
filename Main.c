@@ -212,7 +212,17 @@ int main()
                 {
                     printf("\033[91mPMS10 incorret frame length\033[0m \n\r");
                 }
-                
+                uint16_t check_sum = 0;
+                for(int i = 0; i < 30; i++)
+                {
+                    uint8_t *data = ((uint8_t*)&pms_frame+i);
+                    check_sum += *data;
+                }
+                if(check_sum != pms_frame.checksum)
+                {
+                    printf("\033[91mPMS10 checksum incorrect. %04x vs %04x\033[0m\n\r",
+                    check_sum, pms_frame.checksum);
+                }
             }
         }
      
