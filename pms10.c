@@ -48,7 +48,6 @@ static bool check_checksum(void)
         check_sum, pms_frame.checksum);
         return false;
     }
-    printf("PMS10 frame correct\n\r");
     return true;
 }
 
@@ -74,13 +73,13 @@ void pms10_read(void)
 
         if(current_byte == '\x4d' && previous_byte == '\x42')
         {
+            memset(frame, 0x55, 32);
             frame[0] = '\x42';
             frame[1] = '\x4d';
             byte_index = 2;
-            printf("New frame\n\r");
         }
         
-        if(byte_index == 31)
+        if(byte_index == 32)
         {   
             print_frame();
             if(check_checksum() == true)
