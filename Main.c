@@ -163,34 +163,56 @@ int main()
 
     pms10_init();
 
-    uint8_t buffer[100];
+   
+    uint8_t frame[32];
+    uint8_t frame_complete[30];
+    uint8_t previous_byte = 0;
+    uint8_t current_byte = 0;
+    uint8_t byte_index = 0;
     
     while(1)
     {
-        uint32_t len = UART3_RecvString(buffer);
-        if(len > 0)
+        if( R8_UART3_RFC )
         {
-            printf("\n\rLen:%d\n\r", len);
-            for(int i = 0 ; i < len; i++)
+            previous_byte = current_byte;
+            current_byte = R8_UART3_RBR;
+
+            frame[byte_index%32] = current_byte;
+            byte_index++;
+
+            if(current_byte == '\x4d' && previous_byte == '\x42')
             {
-                printf("%02x ", buffer[i]);
+                byte_index = 0;
+                printf("New frame\n\r");
+            }
+            
+            if(byte_index == 31)
+            {
+                memcpy(frame_complete, frame, 30);
+                printf("Frame data: ");
+                for(int i = 0 ; i <30;i++)
+                {
+                    printf("%02x ", frame_complete[i]);
+                }
+                printf("\n\r");
             }
         }
-        // if(tcp_pcb_handle == NULL)
-        // {
-        //     influxdb_connect();
-        // }
-        // if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
-        // {
-        //     printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
-        //     if(tcp_pcb_handle->state == ESTABLISHED)
-        //     {
-        //         influx_tcp_send_packet(tcp_pcb_handle);
-        //     }
-        // }
-        // lwip_pkt_handle();
-        // lwip_periodic_handle();
-        // sys_check_timeouts();	
+     
+        if(tcp_pcb_handle == NULL)
+        {
+            influxdb_connect();
+        }
+        if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
+        {
+            printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
+            if(tcp_pcb_handle->state == ESTABLISHED)
+            {
+                influx_tcp_send_packet(tcp_pcb_handle);
+            }
+        }
+        lwip_pkt_handle();
+        lwip_periodic_handle();
+        sys_check_timeouts();	
     }
 }
 
