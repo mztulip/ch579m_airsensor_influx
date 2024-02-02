@@ -29,6 +29,39 @@ void pms10_init(void)
     UART3_BaudRateCfg(9600);
 }
 
+static bool check_checksum(void)
+{
+    static struct pms1003data *pms_frame_pointer = (struct pms1003data *)frame;
+    if(pms_frame_pointer->frame_len != 28)
+    {
+        printf("\033[91mPMS10 incorret frame length\033[0m \n\r");
+    }
+
+    uint16_t check_sum = 0;
+    for(int i = 0; i < 30; i++)
+    {
+        check_sum += frame[i];
+    }
+    if(check_sum != pms_frame_pointer->checksum)
+    {
+        printf("\033[91mPMS10 checksum incorrect. %04x vs %04x\033[0m\n\r",
+        check_sum, pms_frame.checksum);
+        return false;
+    }
+    printf("PMS10 frame correct\n\r");
+    return true;
+}
+
+static void print_frame(void)
+{
+    printf("Frame data: ");
+    for(int i = 0 ; i <32;i++)
+    {
+        printf("%02x ", frame[i]);
+    }
+    printf("\n\r");
+}
+
 void pms10_read(void)
 {
     if( R8_UART3_RFC )
@@ -48,28 +81,11 @@ void pms10_read(void)
         }
         
         if(byte_index == 31)
-        {
-            memcpy((uint8_t*)&pms_frame, frame, 32);
-            printf("Frame data: ");
-            for(int i = 0 ; i <32;i++)
+        {   
+            print_frame();
+            if(check_checksum() == true)
             {
-                printf("%02x ", *((uint8_t*)&pms_frame+i));
-            }
-            printf("\n\r");
-            if(pms_frame.frame_len != 28)
-            {
-                printf("\033[91mPMS10 incorret frame length\033[0m \n\r");
-            }
-            uint16_t check_sum = 0;
-            for(int i = 0; i < 30; i++)
-            {
-                uint8_t *data = ((uint8_t*)&pms_frame+i);
-                check_sum += *data;
-            }
-            if(check_sum != pms_frame.checksum)
-            {
-                printf("\033[91mPMS10 checksum incorrect. %04x vs %04x\033[0m\n\r",
-                check_sum, pms_frame.checksum);
+                memcpy((uint8_t*)&pms_frame, frame, 32);
             }
         }
     }
