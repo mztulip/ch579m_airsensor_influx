@@ -9,6 +9,6 @@ lwip-2.1.2/src/include/lwip
 -I
 lwip-2.1.2/src/arch
 -I
-lwip-2.1.2/src/"
+lwip-2.1.2/src/
 -I
 Net/inc

@@ -7,6 +7,7 @@
 #include "lwipcomm.h"
 #include "lwip/timeouts.h"
 #include "tcp.h"
+#include "pms10.h"
 
 uint32_t arg = 0;
 static struct tcp_pcb *tcp_pcb_handle = NULL;
@@ -159,24 +160,37 @@ int main()
 
     struct Timer0Delay sendTimer;
     timer0_init_wait_10ms(&sendTimer, 500); //every 5s
+
+    pms10_init();
+
+    uint8_t buffer[100];
     
     while(1)
     {
-        if(tcp_pcb_handle == NULL)
+        uint32_t len = UART3_RecvString(buffer);
+        if(len > 0)
         {
-            influxdb_connect();
-        }
-        if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
-        {
-            printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
-            if(tcp_pcb_handle->state == ESTABLISHED)
+            printf("\n\rLen:%d\n\r", len);
+            for(int i = 0 ; i < len; i++)
             {
-                influx_tcp_send_packet(tcp_pcb_handle);
+                printf("%02x ", buffer[i]);
             }
         }
-        lwip_pkt_handle();
-        lwip_periodic_handle();
-        sys_check_timeouts();	
+        // if(tcp_pcb_handle == NULL)
+        // {
+        //     influxdb_connect();
+        // }
+        // if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
+        // {
+        //     printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
+        //     if(tcp_pcb_handle->state == ESTABLISHED)
+        //     {
+        //         influx_tcp_send_packet(tcp_pcb_handle);
+        //     }
+        // }
+        // lwip_pkt_handle();
+        // lwip_periodic_handle();
+        // sys_check_timeouts();	
     }
 }
 

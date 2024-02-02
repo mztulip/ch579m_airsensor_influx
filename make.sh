@@ -198,6 +198,11 @@ file="$TOOLCHAIN_GCC Net/src/$filename.c $INLCUDES -o build/$filename.o $GCC_FLA
 echo $file
 $file
 
+filename=pms10
+file="$TOOLCHAIN_GCC $filename.c $INLCUDES -o build/$filename.o $GCC_FLAGS"
+echo $file
+$file
+
 LINKER_FLAGS="-nostartfiles -Wl,--gc-sections -mcpu=cortex-m0 --specs=nano.specs"
 linker="$TOOLCHAIN_GCC build/*.o -T$LINKER_SCRIPT -o output.elf  -Xlinker -Map=output.map $LINKER_FLAGS"
 echo $linker
