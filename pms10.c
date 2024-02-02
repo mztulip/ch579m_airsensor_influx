@@ -94,4 +94,10 @@ void pms10_print_data(void)
     printf("PM1.0 concentration: %d ug/m3\n\r", pms_frame.pm10_standard);
     printf("PM2.5 concentration: %d ug/m3\n\r", pms_frame.pm25_standard);
     printf("PM10 concentration: %d ug/m3\n\r", pms_frame.pm100_standard);
+    printf("Number of particles > 0.3um in 0.1L: %d\n\r", pms_frame.particles_03um);
+    printf("Number of particles > 0.5um in 0.1L: %d\n\r", pms_frame.particles_05um);
+    printf("Number of particles > 1um in 0.1L: %d\n\r", pms_frame.particles_10um);
+    printf("Number of particles > 2.5um in 0.1L: %d\n\r", pms_frame.particles_25um);
+    printf("Number of particles > 5um in 0.1L: %d\n\r", pms_frame.particles_50um);
+    printf("Number of particles > 100um in 0.1L: %d\n\r", pms_frame.particles_100um);
 }
