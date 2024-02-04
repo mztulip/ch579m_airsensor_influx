@@ -8,6 +8,7 @@
 #include "lwip/timeouts.h"
 #include "tcp.h"
 #include "pms10.h"
+#include "http.h"
 
 uint32_t arg = 0;
 static struct tcp_pcb *tcp_pcb_handle = NULL;
@@ -92,65 +93,14 @@ static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
     return ERR_OK;
 }
 
-// database = air_db
-// measurement = pm10 or pm25 or pm100
-// tag key = sensor
-// tag value =sensor1
-// field-key = value
-const char *http_influx_post_template = "POST /write?db=air_db HTTP/1.1\x0d\x0a"
-"Host: %s:%d\x0d\x0a"
-"User-Agent: ch579_airsensor/1.0\x0d\x0a"
-"Accept: */*\x0d\x0a"
-"Content-Length: %d\x0d\x0a"
-"Content-Type: application/x-www-form-urlencoded\x0d\x0a\x0d\x0a";
-
-const char *http_post_content_template = "pm10,sensor=sensor1 value=%d\n"
-"pm25,sensor=sensor1 value=%d\n"
-"pm100,sensor=sensor1 value=%d";
-
-//Buffer is greater for overflow security
-char ip_string[4*3+3+12];
-char http_buffer[1100];
-char http_post_content_buffer[200];
-
-static err_t ip_to_string(ip_addr_t ip_address)
-{
-    uint32_t ip_len = sprintf(ip_string , "%ld.%ld.%ld.%ld",  \
-    ((ip_address.addr)&0x000000ff),       \
-    (((ip_address.addr)&0x0000ff00)>>8),  \
-    (((ip_address.addr)&0x00ff0000)>>16), \
-    ((ip_address.addr)&0xff000000)>>24);
-    if(ip_len > (4*3+3))
-    {
-        return ERR_MEM;
-    }
-    return ERR_OK;
-}
-
-static err_t prepare_http_request(struct tcp_pcb *tpcb)
-{
-    err_t result;
-    result = ip_to_string(tpcb->remote_ip);
-    if(result != ERR_OK) {printf("\033[91buffer overflow during ip to string conversion\033\n\r");return result;}
-
-    uint32_t content_length = sprintf(http_post_content_buffer, http_post_content_template, 10, 5, 1);
-    if(content_length > 200) {printf("\033[91http request buffer overflow\033\n\r");return ERR_MEM;}
-
-    uint32_t http_request_len = sprintf(http_buffer, http_influx_post_template, ip_string, tpcb->remote_port, content_length);
-    if(http_request_len > 1000) {printf("\033[91http request buffer overflow\033\n\r");return ERR_MEM;}
-    if((http_request_len + content_length) > 1000 ) {printf("\033[91http request content not fits in to the buffer.\033\n\r");return ERR_MEM;}
-    memcpy(http_buffer+http_request_len, http_post_content_buffer, content_length);
-    return ERR_OK;
-}
-
 void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 {
     err_t result;
     printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
-    result = prepare_http_request(tpcb);
+    result = http_prepare_request(tpcb);
     if(result != ERR_OK) {return;}
-    printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_buffer), http_buffer);
-    result = tcp_write(tpcb, http_buffer, strlen(http_buffer), TCP_WRITE_FLAG_COPY);
+    printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_request_buffer), http_request_buffer);
+    result = tcp_write(tpcb, http_request_buffer, strlen(http_request_buffer), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
     result = tcp_output(tpcb);
     if(result != ERR_OK) {printf("tcp_output error \n\r");return;}
