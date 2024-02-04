@@ -126,26 +126,26 @@ static err_t ip_to_string(ip_addr_t ip_address)
     return ERR_OK;
 }
 
-static err_t prepare_http_request(ip_addr_t influx_server_ip, uint16_t influxdb_port)
+static err_t prepare_http_request(struct tcp_pcb *tpcb)
 {
     err_t result;
-    result = ip_to_string(influx_server_ip);
+    result = ip_to_string(tpcb->remote_ip);
     if(result != ERR_OK) {printf("\033[91buffer overflow during ip to string conversion\033\n\r");return result;}
 
     uint32_t content_length = strlen(http_post_content_template);
 
-    uint32_t http_request_len = sprintf(http_buffer, http_influx_post_template, ip_string, influxdb_port, content_length);
+    uint32_t http_request_len = sprintf(http_buffer, http_influx_post_template, ip_string, tpcb->remote_port, content_length);
     if(http_request_len > 1000) {printf("\033[91http request buffer overflow\033\n\r");return ERR_MEM;}
     if((http_request_len + content_length) > 1000 ) {printf("\033[91http request content not fits in to the buffer.\033\n\r");return ERR_MEM;}
     memcpy(http_buffer+http_request_len, http_post_content_template, content_length);
     return ERR_OK;
 }
 
-void influx_tcp_send_packet(struct tcp_pcb *tpcb, ip_addr_t influx_server_ip, uint16_t influxdb_port)
+void influx_tcp_send_packet(struct tcp_pcb *tpcb)
 {
     err_t result;
     printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
-    result = prepare_http_request(influx_server_ip, influxdb_port);
+    result = prepare_http_request(tpcb);
     if(result != ERR_OK) {return;}
     printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_buffer), http_buffer);
     result = tcp_write(tpcb, http_buffer, strlen(http_buffer), TCP_WRITE_FLAG_COPY);
@@ -222,7 +222,7 @@ int main()
             printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
             {
-                influx_tcp_send_packet(tcp_pcb_handle, influx_server_ip, port);
+                influx_tcp_send_packet(tcp_pcb_handle);
             }
         }
         lwip_pkt_handle();
