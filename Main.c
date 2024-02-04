@@ -104,13 +104,14 @@ const char *http_influx_post_template = "POST /write?db=air_db HTTP/1.1\x0d\x0a"
 "Content-Length: %d\x0d\x0a"
 "Content-Type: application/x-www-form-urlencoded\x0d\x0a\x0d\x0a";
 
-const char *http_post_content_template = "pm10,sensor=sensor1 value=10\n"
-"pm25,sensor=sensor1 value=5\n"
-"pm100,sensor=sensor1 value=81";
+const char *http_post_content_template = "pm10,sensor=sensor1 value=%d\n"
+"pm25,sensor=sensor1 value=%d\n"
+"pm100,sensor=sensor1 value=%d";
 
 //Buffer is greater for overflow security
 char ip_string[4*3+3+12];
 char http_buffer[1100];
+char http_post_content_buffer[200];
 
 static err_t ip_to_string(ip_addr_t ip_address)
 {
@@ -132,12 +133,13 @@ static err_t prepare_http_request(struct tcp_pcb *tpcb)
     result = ip_to_string(tpcb->remote_ip);
     if(result != ERR_OK) {printf("\033[91buffer overflow during ip to string conversion\033\n\r");return result;}
 
-    uint32_t content_length = strlen(http_post_content_template);
+    uint32_t content_length = sprintf(http_post_content_buffer, http_post_content_template, 10, 5, 1);
+    if(content_length > 200) {printf("\033[91http request buffer overflow\033\n\r");return ERR_MEM;}
 
     uint32_t http_request_len = sprintf(http_buffer, http_influx_post_template, ip_string, tpcb->remote_port, content_length);
     if(http_request_len > 1000) {printf("\033[91http request buffer overflow\033\n\r");return ERR_MEM;}
     if((http_request_len + content_length) > 1000 ) {printf("\033[91http request content not fits in to the buffer.\033\n\r");return ERR_MEM;}
-    memcpy(http_buffer+http_request_len, http_post_content_template, content_length);
+    memcpy(http_buffer+http_request_len, http_post_content_buffer, content_length);
     return ERR_OK;
 }
 
