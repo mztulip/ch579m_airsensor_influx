@@ -17,5 +17,6 @@ struct __attribute__((packed, scalar_storage_order("big-endian"))) pms1003data
 void pms10_init(void);
 void pms10_read(void);
 void pms10_print_data(void);
+struct pms1003data pms10_get_data(void);
 
 #endif

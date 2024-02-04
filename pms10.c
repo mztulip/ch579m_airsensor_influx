@@ -101,3 +101,8 @@ void pms10_print_data(void)
     printf("Number of particles > 5um in 0.1L: %d\n\r", pms_frame.particles_50um);
     printf("Number of particles > 100um in 0.1L: %d\n\r", pms_frame.particles_100um);
 }
+
+struct pms1003data pms10_get_data(void)
+{
+ return pms_frame;
+}
