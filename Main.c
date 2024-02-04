@@ -98,7 +98,7 @@ static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
 // tag value =sensor1
 // field-key = value
 const char *http_influx_post = "POST /write?db=air_db HTTP/1.1\x0d\x0a"
-"Host: %s:8086\x0d\x0a"
+"Host: %s:%d\x0d\x0a"
 "User-Agent: ch579_airsensor/1.0\x0d\x0a"
 "Accept: */*\x0d\x0a"
 "Content-Length: 86\x0d\x0a"
@@ -125,13 +125,13 @@ static err_t ip_to_string(ip_addr_t ip_address)
 }
 
 
-void influx_tcp_send_packet(struct tcp_pcb *tpcb, ip_addr_t influx_server_ip)
+void influx_tcp_send_packet(struct tcp_pcb *tpcb, ip_addr_t influx_server_ip, uint16_t influxdb_port)
 {
     err_t result;
     printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
     result = ip_to_string(influx_server_ip);
     if(result != ERR_OK) {printf("\033[91buffer overflow during ip to string conversion\033\n\r");return;}
-    sprintf(http_buffer, http_influx_post, ip_string);
+    sprintf(http_buffer, http_influx_post, ip_string, influxdb_port);
     printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_buffer), http_buffer);
     result = tcp_write(tpcb, http_buffer, strlen(http_buffer), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
@@ -152,7 +152,7 @@ err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
     return ERR_OK;
 }
 
-void influxdb_connect(ip_addr_t influx_server_ip)
+void influxdb_connect(ip_addr_t influx_server_ip, uint16_t influxdb_port)
 {
     err_t result;
  
@@ -190,6 +190,7 @@ int main()
     pms10_init();
 
     ip_addr_t influx_server_ip;
+    uint16_t port = 8086;
     IP4_ADDR(&influx_server_ip, 192,168,2,101);  
     
     while(1)
@@ -198,7 +199,7 @@ int main()
      
         if(tcp_pcb_handle == NULL)
         {
-            influxdb_connect(influx_server_ip);
+            influxdb_connect(influx_server_ip, port);
         }
         if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
         {
@@ -206,7 +207,7 @@ int main()
             printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
             {
-                influx_tcp_send_packet(tcp_pcb_handle, influx_server_ip);
+                influx_tcp_send_packet(tcp_pcb_handle, influx_server_ip, port);
             }
         }
         lwip_pkt_handle();
