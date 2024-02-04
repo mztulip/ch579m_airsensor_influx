@@ -107,8 +107,9 @@ const char *http_influx_post = "POST /write?db=air_db HTTP/1.1\x0d\x0a"
 "pm25,sensor=sensor1 value=5\n"
 "pm100,sensor=sensor1 value=81";
 
-char ip_string[4*3+3];
-char http_buffer[1000];
+//Buffer is greater for overflow security
+char ip_string[4*3+3+12];
+char http_buffer[1100];
 
 static err_t ip_to_string(ip_addr_t ip_address)
 {
@@ -131,7 +132,8 @@ void influx_tcp_send_packet(struct tcp_pcb *tpcb, ip_addr_t influx_server_ip, ui
     printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
     result = ip_to_string(influx_server_ip);
     if(result != ERR_OK) {printf("\033[91buffer overflow during ip to string conversion\033\n\r");return;}
-    sprintf(http_buffer, http_influx_post, ip_string, influxdb_port);
+    uint32_t http_request_len = sprintf(http_buffer, http_influx_post, ip_string, influxdb_port);
+    if(http_request_len > 1000) {printf("\033[91http request buffer overflow\033\n\r");return;}
     printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_buffer), http_buffer);
     result = tcp_write(tpcb, http_buffer, strlen(http_buffer), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
