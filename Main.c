@@ -152,7 +152,7 @@ int main()
     lwip_comm_init(); 
 
     struct Timer0Delay sendTimer;
-    timer0_init_wait_10ms(&sendTimer, 500); //every 5s
+    timer0_init_wait_10ms(&sendTimer, 1000); //every 10s
 
     pms10_init();
 
