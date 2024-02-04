@@ -92,18 +92,27 @@ static err_t tcp_influx_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
     return ERR_OK;
 }
 
-char *http_post = "POST /write?db=woda_db HTTP/1.1\x0d\x0a"
+// database = air_db
+// measurement = pm10 or pm25 or pm100
+// tag key = sensor
+// tag value =sensor1
+// field-key = value
+char *http_post = "POST /write?db=air_db HTTP/1.1\x0d\x0a"
 "Host: 192.168.2.101:8086\x0d\x0a"
 "User-Agent: ch579_airsensor/1.0\x0d\x0a"
 "Accept: */*\x0d\x0a"
-"Content-Length: 29\x0d\x0a"
+"Content-Length: 86\x0d\x0a"
 "Content-Type: application/x-www-form-urlencoded\x0d\x0a\x0d\x0a"
-"licznik,kto=woda1 value=45301";
+"pm10,sensor=sensor1 value=10\n"
+"pm25,sensor=sensor1 value=5\n"
+"pm100,sensor=sensor1 value=81";
 
-void influx_tcp_send_packet(struct tcp_pcb *tpcb)
+
+void influx_tcp_send_packet(struct tcp_pcb *tpcb, ip_addr_t influx_server_ip)
 {
     err_t result;
     printf("Send queue: %d\n\r", tcp_sndqueuelen(tpcb));
+    // printf("Data len: %u, content: %s\n\r", (uint32_t)strlen(http_post), http_post);
     result = tcp_write(tpcb, http_post, strlen(http_post), TCP_WRITE_FLAG_COPY);
     if(result != ERR_OK) {printf("tcp_write error \n\r");return;}
     result = tcp_output(tpcb);
@@ -123,7 +132,7 @@ err_t tcp_influx_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
     return ERR_OK;
 }
 
-void influxdb_connect(void)
+void influxdb_connect(ip_addr_t influx_server_ip)
 {
     err_t result;
  
@@ -134,9 +143,6 @@ void influxdb_connect(void)
     tcp_recv(tcp_pcb_handle, tcp_influx_received);
     tcp_err(tcp_pcb_handle, tcp_influx_error);
     tcp_sent(tcp_pcb_handle, tcp_influx_sent);
- 
-    ip_addr_t influx_server_ip;
-    IP4_ADDR(&influx_server_ip, 192,168,2,101);  
 
     result = tcp_connect(tcp_pcb_handle, &influx_server_ip, 8086, tcp_influx_connected);
     if(result != ERR_OK) {printf("tcp_connect error \n\r");}
@@ -162,6 +168,9 @@ int main()
     timer0_init_wait_10ms(&sendTimer, 500); //every 5s
 
     pms10_init();
+
+    ip_addr_t influx_server_ip;
+    IP4_ADDR(&influx_server_ip, 192,168,2,101);  
     
     while(1)
     {
@@ -169,7 +178,7 @@ int main()
      
         if(tcp_pcb_handle == NULL)
         {
-            influxdb_connect();
+            influxdb_connect(influx_server_ip);
         }
         if(timer0_check_wait(&sendTimer) && tcp_pcb_handle != NULL)
         {
@@ -177,7 +186,7 @@ int main()
             printf("state: %s\n\r", tcp_debug_state_str(tcp_pcb_handle->state));
             if(tcp_pcb_handle->state == ESTABLISHED)
             {
-                influx_tcp_send_packet(tcp_pcb_handle);
+                influx_tcp_send_packet(tcp_pcb_handle, influx_server_ip);
             }
         }
         lwip_pkt_handle();
